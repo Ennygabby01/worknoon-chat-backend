@@ -1,0 +1,49 @@
+# Local agent instructions and working memory
+AGENTS.md
+CLAUDE.md
+.memory/
+.docs/
+
+# macOS and editor junk
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Node dependencies and package managers
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+
+# Build output and caches
+dist/
+build/
+coverage/
+.nyc_output/
+.cache/
+*.tsbuildinfo

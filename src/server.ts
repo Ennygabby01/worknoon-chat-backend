@@ -1,0 +1,23 @@
+import { createServer } from "node:http";
+import { connectDatabase } from "./config/database.js";
+import { env } from "./config/env.js";
+import { createApp } from "./app.js";
+import { createSocketServer } from "./realtime/socket-server.js";
+
+async function bootstrap() {
+  await connectDatabase();
+
+  const app = createApp();
+  const httpServer = createServer(app);
+
+  createSocketServer(httpServer);
+
+  httpServer.listen(env.PORT, () => {
+    console.log(`Worknoon chat backend running on port ${env.PORT}`);
+  });
+}
+
+bootstrap().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
