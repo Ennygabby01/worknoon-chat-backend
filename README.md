@@ -1,6 +1,6 @@
 # Worknoon Chat Backend
 
-Backend API and Socket.IO server for the Worknoon real-time chat assessment.
+Backend API and Socket.IO server for the Worknoon real-time chat assessment. It owns authentication, roles, conversations, messages, read state, admin read endpoints, and realtime delivery.
 
 ## Stack
 
@@ -22,38 +22,26 @@ cp .env.example .env
 npm run dev
 ```
 
-The API defaults to `http://localhost:4000`.
+The API runs at `http://localhost:4000` by default.
 
-MongoDB must be running at the configured `MONGODB_URI`. From the workspace root, Docker users can run:
-
-```bash
-make mongo-up
-make mongo-status
-make dev-backend
-```
-
-If MongoDB is not running, the backend will fail with `ECONNREFUSED 127.0.0.1:27017`.
-
-The Docker Compose setup only runs MongoDB. The backend and frontend still run locally through npm scripts.
-
-MailHog is available for local email delivery:
+MongoDB must be running at the configured `MONGODB_URI`. For local development, run MongoDB directly or with Docker:
 
 ```bash
-make mail-up
+docker run --name worknoon-chat-mongodb -p 27017:27017 -d mongo:8
 ```
 
-MailHog SMTP listens on `127.0.0.1:1025`, and the web inbox is available at `http://localhost:8025`.
+MailHog can be used for local email delivery:
 
-Public signup only creates customer, designer, or merchant users. To create or update the first local admin account, set the `SEED_ADMIN_*` values in `.env` and run:
+```bash
+docker run --name worknoon-chat-mailhog -p 1025:1025 -p 8025:8025 -d mailhog/mailhog:v1.0.1
+```
+
+MailHog SMTP listens on `127.0.0.1:1025`; its web inbox is available at `http://localhost:8025`.
+
+To create or update the first local admin account, set the `SEED_ADMIN_*` values in `.env` and run:
 
 ```bash
 npm run seed:admin
-```
-
-From the workspace root:
-
-```bash
-make seed-admin
 ```
 
 ## Environment
@@ -75,6 +63,21 @@ SMTP_USER=
 SMTP_PASSWORD=
 MAIL_FROM=Worknoon Chat <no-reply@worknoon.local>
 ```
+
+For production, set `APP_ORIGIN` to the frontend origin and configure `SMTP_*` values for a real SMTP provider.
+
+## Features
+
+- JWT signup/login with refresh-session rotation.
+- Public signup for customer, designer, and merchant accounts.
+- Admin seeding for the first administrative user.
+- Role-based protected endpoints.
+- Profile read/update.
+- Admin read endpoints for users and conversations.
+- Conversation creation/list/read-state APIs.
+- Plain-text message creation/list APIs with `clientMessageId` idempotency.
+- Socket.IO authentication, rooms, message delivery, and typing updates.
+- SMTP email verification and password reset.
 
 ## Auth Endpoints
 
@@ -156,32 +159,3 @@ Client events:
   "clientMessageId": "client-generated-id"
 }
 ```
-
-## Current Status
-
-Implemented:
-
-- JWT signup/login
-- User roles
-- Refresh session rotation
-- Safe error responses
-- JSON request validation foundation
-- Header/content-type/security middleware
-- Conversation CRUD foundation
-- Message create/list foundation
-- Idempotent message creation with `clientMessageId`
-- Read markers for conversations and messages
-- Socket.IO authentication
-- Socket.IO conversation rooms
-- Socket.IO message send/broadcast
-- Socket.IO typing updates
-- Email verification through SMTP
-- Password reset through SMTP
-- Profile read/update
-- Admin user listing
-- Admin conversation listing
-
-Pending:
-
-- Frontend integration
-- WordPress plugin integration
