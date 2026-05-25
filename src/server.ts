@@ -10,7 +10,8 @@ async function bootstrap() {
   const app = createApp();
   const httpServer = createServer(app);
 
-  createSocketServer(httpServer);
+  const io = createSocketServer(httpServer);
+  app.set("io", io);
 
   httpServer.listen(env.PORT, env.HOST, () => {
     console.log(`Worknoon chat backend running on http://${env.HOST}:${env.PORT}`);

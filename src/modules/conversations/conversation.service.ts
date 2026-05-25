@@ -6,7 +6,7 @@ import {
   type ConversationDocument,
   type ConversationType
 } from "./conversation.model.js";
-import type { CreateConversationInput } from "./conversation.schemas.js";
+import type { CreateConversationInput, CreateSupportConversationInput } from "./conversation.schemas.js";
 
 export async function escalateConversation(conversationId: string, userId: string) {
   const conversation = await assertConversationMember(conversationId, userId);
@@ -21,7 +21,16 @@ export async function escalateConversation(conversationId: string, userId: strin
 export async function claimConversation(conversationId: string, agentId: string) {
   const updated = await ConversationModel.findOneAndUpdate(
     { _id: conversationId, status: "escalated", assignedAgentId: { $exists: false } },
-    { status: "assigned", assignedAgentId: new Types.ObjectId(agentId) },
+    {
+      status: "assigned",
+      assignedAgentId: new Types.ObjectId(agentId),
+      $addToSet: {
+        participants: {
+          userId: new Types.ObjectId(agentId),
+          readAt: new Date()
+        }
+      }
+    },
     { new: true }
   );
   if (!updated) {
@@ -130,6 +139,63 @@ export async function createConversation(userId: string, input: CreateConversati
 
     throw error;
   }
+}
+
+async function findLeastLoadedAgent() {
+  const agents = await UserModel.find({
+    role: "agent",
+    banned: false,
+    emailVerifiedAt: { $exists: true }
+  }).sort({ createdAt: 1 });
+
+  if (agents.length === 0) {
+    return null;
+  }
+
+  const agentIds = agents.map((agent) => agent._id);
+  const activeCaseCounts = await ConversationModel.aggregate<{ _id: Types.ObjectId; count: number }>([
+    {
+      $match: {
+        assignedAgentId: { $in: agentIds },
+        status: { $in: ["open", "assigned"] }
+      }
+    },
+    {
+      $group: {
+        _id: "$assignedAgentId",
+        count: { $sum: 1 }
+      }
+    }
+  ]);
+
+  const countByAgentId = new Map(
+    activeCaseCounts.map((item) => [item._id.toString(), item.count])
+  );
+
+  return agents.reduce((leastLoaded, agent) => {
+    const currentCount = countByAgentId.get(agent._id.toString()) ?? 0;
+    const leastCount = countByAgentId.get(leastLoaded._id.toString()) ?? 0;
+    return currentCount < leastCount ? agent : leastLoaded;
+  }, agents[0]);
+}
+
+export async function createSupportConversation(userId: string, input: CreateSupportConversationInput) {
+  const assignedAgent = await findLeastLoadedAgent();
+  const participantIds = assignedAgent
+    ? [new Types.ObjectId(userId), assignedAgent._id]
+    : [new Types.ObjectId(userId)];
+
+  return ConversationModel.create({
+    type: "support",
+    status: assignedAgent ? "assigned" : "escalated",
+    assignedAgentId: assignedAgent?._id,
+    participants: participantIds.map((participantId) => ({
+      userId: participantId,
+      readAt: participantId.toString() === userId ? new Date() : undefined
+    })),
+    topic: input.topic,
+    productContext: input.productContext
+  });
 }
 
 export async function markConversationRead(conversation: ConversationDocument, userId: string) {

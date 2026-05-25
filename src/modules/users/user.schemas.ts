@@ -7,7 +7,9 @@ const contactRoles = ["agent", "customer", "designer", "merchant"] as const;
 export const updateProfileSchema = z
   .object({
     name: z.string().trim().min(2).max(80).optional(),
-    avatarUrl: z.string().trim().url().max(500).nullable().optional()
+    avatarUrl: z.string().trim().url().max(500).nullable().optional(),
+    bio: z.string().trim().max(240).nullable().optional(),
+    location: z.string().trim().max(120).nullable().optional()
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: "At least one profile field is required"

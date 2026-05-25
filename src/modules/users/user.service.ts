@@ -13,6 +13,14 @@ export async function updateUserProfile(user: UserDocument, input: UpdateProfile
     user.avatarUrl = input.avatarUrl ?? undefined;
   }
 
+  if (input.bio !== undefined) {
+    user.bio = input.bio ?? undefined;
+  }
+
+  if (input.location !== undefined) {
+    user.location = input.location ?? undefined;
+  }
+
   await user.save();
 
   return user;

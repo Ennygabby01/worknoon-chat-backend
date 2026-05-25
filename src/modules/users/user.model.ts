@@ -7,6 +7,10 @@ export type User = {
   passwordHash: string;
   role: UserRole;
   avatarUrl?: string;
+  bio?: string;
+  location?: string;
+  ordersCompleted?: number;
+  conversationsCount?: number;
   banned: boolean;
   emailVerifiedAt?: Date;
   createdAt?: Date;
@@ -46,6 +50,26 @@ const userSchema = new Schema<User>(
       type: String,
       trim: true,
       maxlength: 500
+    },
+    bio: {
+      type: String,
+      trim: true,
+      maxlength: 240
+    },
+    location: {
+      type: String,
+      trim: true,
+      maxlength: 120
+    },
+    ordersCompleted: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    conversationsCount: {
+      type: Number,
+      min: 0,
+      default: 0
     },
     banned: {
       type: Boolean,

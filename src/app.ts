@@ -5,6 +5,7 @@ import { adminRouter } from "./modules/admin/admin.routes.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { conversationRouter } from "./modules/conversations/conversation.routes.js";
 import { messageRouter } from "./modules/messages/message.routes.js";
+import { orderRouter } from "./modules/orders/order.routes.js";
 import { userRouter } from "./modules/users/user.routes.js";
 import { errorHandler } from "./shared/http/error-handler.js";
 import { notFoundHandler } from "./shared/http/not-found.js";
@@ -34,6 +35,7 @@ export function createApp() {
   app.use(`${apiV1Prefix}/users`, userRouter);
   app.use(`${apiV1Prefix}/conversations`, conversationRouter);
   app.use(`${apiV1Prefix}/messages`, messageRouter);
+  app.use(`${apiV1Prefix}/orders`, orderRouter);
   app.use(`${apiV1Prefix}/admin`, adminRouter);
 
   app.use(notFoundHandler);

@@ -14,9 +14,22 @@ export const createConversationSchema = z.object({
     .optional()
 });
 
+export const createSupportConversationSchema = z.object({
+  topic: z.string().trim().min(1).max(120).optional(),
+  openingMessage: z.string().trim().min(1).max(2000),
+  clientMessageId: z.string().trim().min(8).max(80),
+  productContext: z
+    .object({
+      productId: z.string().trim().min(1).max(120).optional(),
+      productName: z.string().trim().min(1).max(160).optional()
+    })
+    .optional()
+});
+
 export const conversationIdParamsSchema = z.object({
   id: objectIdSchema
 });
 
 export type CreateConversationInput = z.infer<typeof createConversationSchema>;
+export type CreateSupportConversationInput = z.infer<typeof createSupportConversationSchema>;
 export type ConversationIdParams = z.infer<typeof conversationIdParamsSchema>;

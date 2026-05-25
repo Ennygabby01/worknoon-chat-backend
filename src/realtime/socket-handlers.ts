@@ -4,7 +4,7 @@ import { assertConversationMember } from "../modules/conversations/conversation.
 import { presentMessage } from "../modules/messages/message.presenter.js";
 import { assertMessageBodyAllowed, createConversationMessage } from "../modules/messages/message.service.js";
 import { AppError } from "../shared/errors/app-error.js";
-import { getConversationRoom, realtimeEvents } from "./realtime-events.js";
+import { getAgentQueueRoom, getConversationRoom, realtimeEvents } from "./realtime-events.js";
 import {
   joinConversationPayloadSchema,
   sendMessagePayloadSchema,
@@ -36,6 +36,10 @@ function emitSocketError(socket: AuthenticatedSocket, error: unknown) {
 }
 
 export function registerSocketHandlers(io: Server, socket: AuthenticatedSocket) {
+  if (socket.userRole === "agent") {
+    void socket.join(getAgentQueueRoom());
+  }
+
   socket.emit(realtimeEvents.connectionReady, {
     socketId: socket.id,
     userId: socket.userId

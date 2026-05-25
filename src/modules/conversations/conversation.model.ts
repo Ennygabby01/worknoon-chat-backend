@@ -70,9 +70,9 @@ const conversationSchema = new Schema<Conversation>(
       required: true,
       validate: {
         validator(participants: ConversationParticipant[]) {
-          return participants.length >= 2;
+          return participants.length >= 1;
         },
-        message: "A conversation needs at least two participants"
+        message: "A conversation needs at least one participant"
       }
     },
     topic: {
