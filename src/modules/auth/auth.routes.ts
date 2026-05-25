@@ -37,11 +37,10 @@ authRouter.post(
   validateRequest({ body: registerSchema }),
   asyncHandler(async (req, res) => {
     const result = await registerUser(req.validatedBody as RegisterInput);
-    setRefreshCookie(res, result.refreshToken);
+    clearRefreshCookie(res);
 
     res.status(201).json({
-      user: result.user,
-      accessToken: result.accessToken
+      user: result.user
     });
   })
 );
@@ -103,8 +102,12 @@ authRouter.post(
     const result = await confirmEmailVerification(
       req.validatedBody as ConfirmEmailVerificationInput
     );
+    setRefreshCookie(res, result.refreshToken);
 
-    res.json(result);
+    res.json({
+      user: result.user,
+      accessToken: result.accessToken
+    });
   })
 );
 

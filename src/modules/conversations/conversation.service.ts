@@ -8,6 +8,52 @@ import {
 } from "./conversation.model.js";
 import type { CreateConversationInput } from "./conversation.schemas.js";
 
+export async function escalateConversation(conversationId: string, userId: string) {
+  const conversation = await assertConversationMember(conversationId, userId);
+  if (conversation.status !== "open") {
+    throw new AppError("Conversation is not open", 400, "INVALID_STATUS");
+  }
+  conversation.status = "escalated";
+  await conversation.save();
+  return conversation;
+}
+
+export async function claimConversation(conversationId: string, agentId: string) {
+  const updated = await ConversationModel.findOneAndUpdate(
+    { _id: conversationId, status: "escalated", assignedAgentId: { $exists: false } },
+    { status: "assigned", assignedAgentId: new Types.ObjectId(agentId) },
+    { new: true }
+  );
+  if (!updated) {
+    throw new AppError("Conversation is not available to claim", 409, "ALREADY_CLAIMED");
+  }
+  return updated;
+}
+
+export async function resolveConversation(conversationId: string, agentId: string) {
+  const conversation = await ConversationModel.findOne({
+    _id: conversationId,
+    assignedAgentId: new Types.ObjectId(agentId)
+  });
+  if (!conversation) {
+    throw new AppError("Conversation not found or not assigned to you", 404, "NOT_FOUND");
+  }
+  conversation.status = "resolved";
+  await conversation.save();
+  return conversation;
+}
+
+export async function listEscalatedQueue() {
+  return ConversationModel.find({ status: "escalated" }).sort({ updatedAt: -1 });
+}
+
+export async function listAgentCases(agentId: string) {
+  return ConversationModel.find({
+    assignedAgentId: new Types.ObjectId(agentId),
+    status: { $in: ["assigned", "resolved"] }
+  }).sort({ updatedAt: -1 });
+}
+
 function uniqueIds(ids: string[]) {
   return Array.from(new Set(ids));
 }

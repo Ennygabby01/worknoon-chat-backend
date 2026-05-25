@@ -5,12 +5,22 @@ import { asyncHandler } from "../../shared/http/async-handler.js";
 import { validateRequest } from "../../shared/validation/validate-request.js";
 import { presentUser } from "./user.presenter.js";
 import {
+  changePasswordSchema,
+  contactListQuerySchema,
   updateProfileSchema,
   userListQuerySchema,
+  type ChangePasswordInput,
+  type ContactListQuery,
   type UpdateProfileInput,
   type UserListQuery
 } from "./user.schemas.js";
-import { assertUserLoaded, listUsers, updateUserProfile } from "./user.service.js";
+import {
+  assertUserLoaded,
+  changeUserPassword,
+  listChatContacts,
+  listUsers,
+  updateUserProfile
+} from "./user.service.js";
 
 export const userRouter = Router();
 
@@ -21,6 +31,22 @@ userRouter.get("/me", (req, res) => {
     user: presentUser(assertUserLoaded(req.user))
   });
 });
+
+userRouter.get(
+  "/contacts",
+  validateRequest({ query: contactListQuerySchema }),
+  asyncHandler(async (req, res) => {
+    const result = await listChatContacts(
+      assertUserLoaded(req.user)._id.toString(),
+      req.validatedQuery as ContactListQuery
+    );
+
+    res.json({
+      users: result.users.map(presentUser),
+      pagination: result.pagination
+    });
+  })
+);
 
 userRouter.patch(
   "/me",
@@ -34,6 +60,16 @@ userRouter.patch(
     res.json({
       user: presentUser(user)
     });
+  })
+);
+
+userRouter.post(
+  "/me/password",
+  validateRequest({ body: changePasswordSchema }),
+  asyncHandler(async (req, res) => {
+    const user = assertUserLoaded(req.user);
+    await changeUserPassword(user._id.toString(), req.validatedBody as ChangePasswordInput);
+    res.json({ ok: true });
   })
 );
 

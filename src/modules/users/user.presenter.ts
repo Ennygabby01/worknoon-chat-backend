@@ -14,6 +14,7 @@ export function presentUser(user: UserDocument | PresentableUser) {
     email: user.email,
     role: user.role,
     avatarUrl: user.avatarUrl ?? null,
+    banned: user.banned ?? false,
     emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
     createdAt: user.createdAt?.toISOString(),
     updatedAt: user.updatedAt?.toISOString()

@@ -24,6 +24,10 @@ const authenticateRequest = async (req: Parameters<RequestHandler>[0]) => {
       throw new AppError("Authentication is invalid", 401, "INVALID_AUTH_TOKEN");
     }
 
+    if (!user.emailVerifiedAt) {
+      throw new AppError("Email verification is required", 403, "EMAIL_NOT_VERIFIED");
+    }
+
     req.user = user;
   } catch (error) {
     if (error instanceof AppError) {

@@ -1,8 +1,10 @@
 import { Schema, model, type HydratedDocument, type Model, type Types } from "mongoose";
 
 export const conversationTypes = ["direct", "support"] as const;
+export const conversationStatuses = ["open", "escalated", "assigned", "resolved"] as const;
 
 export type ConversationType = (typeof conversationTypes)[number];
+export type ConversationStatus = (typeof conversationStatuses)[number];
 
 export type ConversationParticipant = {
   userId: Types.ObjectId;
@@ -11,8 +13,10 @@ export type ConversationParticipant = {
 
 export type Conversation = {
   type: ConversationType;
+  status: ConversationStatus;
   participantKey?: string;
   participants: ConversationParticipant[];
+  assignedAgentId?: Types.ObjectId;
   topic?: string;
   productContext?: {
     productId?: string;
@@ -46,6 +50,16 @@ const conversationSchema = new Schema<Conversation>(
       type: String,
       enum: conversationTypes,
       required: true
+    },
+    status: {
+      type: String,
+      enum: conversationStatuses,
+      required: true,
+      default: "open"
+    },
+    assignedAgentId: {
+      type: Schema.Types.ObjectId,
+      ref: "User"
     },
     participantKey: {
       type: String,

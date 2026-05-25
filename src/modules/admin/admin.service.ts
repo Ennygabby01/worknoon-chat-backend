@@ -1,6 +1,8 @@
 import { getPagination } from "../../shared/validation/pagination.js";
 import { ConversationModel } from "../conversations/conversation.model.js";
-import type { AdminConversationListQuery } from "./admin.schemas.js";
+import { UserModel } from "../users/user.model.js";
+import { AppError } from "../../shared/errors/app-error.js";
+import type { AdminConversationListQuery, AdminUpdateUserInput } from "./admin.schemas.js";
 
 export async function listAdminConversations(query: AdminConversationListQuery) {
   const pagination = getPagination(query);
@@ -26,4 +28,13 @@ export async function listAdminConversations(query: AdminConversationListQuery) 
       total
     }
   };
+}
+
+export async function adminUpdateUser(userId: string, input: AdminUpdateUserInput) {
+  const user = await UserModel.findById(userId);
+  if (!user) throw new AppError("User not found", 404, "NOT_FOUND");
+  if (input.role !== undefined) user.role = input.role;
+  if (input.banned !== undefined) user.banned = input.banned;
+  await user.save();
+  return user;
 }

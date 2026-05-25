@@ -23,7 +23,7 @@ export function createApp() {
       credentials: true
     })
   );
-  app.use(requireJsonContent);
+  app.use(apiV1Prefix, requireJsonContent);
   app.use(express.json({ limit: "100kb" }));
 
   app.get("/health", (_req, res) => {

@@ -12,8 +12,8 @@ async function bootstrap() {
 
   createSocketServer(httpServer);
 
-  httpServer.listen(env.PORT, () => {
-    console.log(`Worknoon chat backend running on port ${env.PORT}`);
+  httpServer.listen(env.PORT, env.HOST, () => {
+    console.log(`Worknoon chat backend running on http://${env.HOST}:${env.PORT}`);
   });
 }
 

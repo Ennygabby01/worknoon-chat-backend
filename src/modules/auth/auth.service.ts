@@ -29,6 +29,7 @@ import {
 
 const passwordHashRounds = 12;
 const emailVerificationMinutes = 15;
+const emailVerificationResendCooldownSeconds = 60;
 const passwordResetMinutes = 30;
 
 function createExpiresAt(minutes: number) {
@@ -77,11 +78,8 @@ export async function registerUser(input: RegisterInput) {
     role: input.role
   });
 
-  const session = await createSession(user);
-
   return {
-    user: presentUser(user),
-    ...session
+    user: presentUser(user)
   };
 }
 
@@ -96,6 +94,10 @@ export async function loginUser(input: LoginInput) {
 
   if (!passwordMatches) {
     throw new AppError("Invalid email or password", 401, "INVALID_CREDENTIALS");
+  }
+
+  if (!user.emailVerifiedAt) {
+    throw new AppError("Email verification is required", 403, "EMAIL_NOT_VERIFIED");
   }
 
   const session = await createSession(user);
@@ -126,6 +128,12 @@ export async function refreshUserSession(refreshToken: string | null) {
 
   if (!user) {
     throw new AppError("Refresh session is invalid", 401, "INVALID_REFRESH_SESSION");
+  }
+
+  if (!user.emailVerifiedAt) {
+    session.revokedAt = new Date();
+    await session.save();
+    throw new AppError("Email verification is required", 403, "EMAIL_NOT_VERIFIED");
   }
 
   session.revokedAt = new Date();
@@ -162,8 +170,35 @@ export async function requestEmailVerification(input: RequestEmailVerificationIn
     return { sent: true };
   }
 
+  const now = new Date();
+  const cooldownStartedAt = new Date(
+    now.getTime() - emailVerificationResendCooldownSeconds * 1000
+  );
+  const recentToken = await AccountActionTokenModel.exists({
+    userId: user._id,
+    type: "email_verification",
+    consumedAt: { $exists: false },
+    expiresAt: { $gt: now },
+    createdAt: { $gt: cooldownStartedAt }
+  });
+
+  if (recentToken) {
+    return { sent: true };
+  }
+
   const token = createActionToken();
   const code = createVerificationCode();
+
+  await AccountActionTokenModel.updateMany(
+    {
+      userId: user._id,
+      type: "email_verification",
+      consumedAt: { $exists: false }
+    },
+    {
+      $set: { consumedAt: now }
+    }
+  );
 
   await AccountActionTokenModel.create({
     userId: user._id,
@@ -192,9 +227,7 @@ export async function confirmEmailVerification(input: ConfirmEmailVerificationIn
   }
 
   if (user.emailVerifiedAt) {
-    return {
-      user: presentUser(user)
-    };
+    throw new AppError("Verification code is invalid or expired", 400, "INVALID_VERIFICATION_CODE");
   }
 
   const token = await AccountActionTokenModel.findOne({
@@ -214,8 +247,11 @@ export async function confirmEmailVerification(input: ConfirmEmailVerificationIn
 
   await Promise.all([token.save(), user.save()]);
 
+  const session = await createSession(user);
+
   return {
-    user: presentUser(user)
+    user: presentUser(user),
+    ...session
   };
 }
 

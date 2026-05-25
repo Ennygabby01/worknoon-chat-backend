@@ -23,7 +23,8 @@ async function seedAdmin() {
         email: input.SEED_ADMIN_EMAIL,
         name: input.SEED_ADMIN_NAME,
         passwordHash,
-        role: "admin"
+        role: "admin",
+        emailVerifiedAt: new Date()
       }
     },
     {

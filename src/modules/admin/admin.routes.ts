@@ -6,9 +6,14 @@ import { asyncHandler } from "../../shared/http/async-handler.js";
 import { validateRequest } from "../../shared/validation/validate-request.js";
 import {
   adminConversationListQuerySchema,
-  type AdminConversationListQuery
+  adminUpdateUserSchema,
+  adminUserIdParamsSchema,
+  type AdminConversationListQuery,
+  type AdminUpdateUserInput,
+  type AdminUserIdParams
 } from "./admin.schemas.js";
-import { listAdminConversations } from "./admin.service.js";
+import { adminUpdateUser, listAdminConversations } from "./admin.service.js";
+import { presentUser } from "../users/user.presenter.js";
 
 export const adminRouter = Router();
 
@@ -21,8 +26,20 @@ adminRouter.get(
     const result = await listAdminConversations(req.validatedQuery as AdminConversationListQuery);
 
     res.json({
-      conversations: result.conversations.map(presentConversation),
+      conversations: result.conversations.map((conversation) =>
+        presentConversation(conversation)
+      ),
       pagination: result.pagination
     });
+  })
+);
+
+adminRouter.patch(
+  "/users/:id",
+  validateRequest({ params: adminUserIdParamsSchema, body: adminUpdateUserSchema }),
+  asyncHandler(async (req, res) => {
+    const { id } = req.validatedParams as AdminUserIdParams;
+    const user = await adminUpdateUser(id, req.validatedBody as AdminUpdateUserInput);
+    res.json({ user: presentUser(user) });
   })
 );

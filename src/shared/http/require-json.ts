@@ -9,7 +9,12 @@ export const requireJsonContent: RequestHandler = (req, _res, next) => {
     return;
   }
 
-  if (!req.headers["content-length"] && !req.headers["transfer-encoding"]) {
+  const contentLength = req.headers["content-length"];
+  const hasBody =
+    req.headers["transfer-encoding"] !== undefined ||
+    (typeof contentLength === "string" && Number(contentLength) > 0);
+
+  if (!hasBody) {
     next();
     return;
   }
