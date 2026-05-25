@@ -8,6 +8,15 @@
 
 Backend API and Socket.IO server for the Worknoon real-time chat assessment. It owns authentication, roles, conversations, messages, read state, admin read endpoints, and realtime delivery.
 
+## Demo Video
+
+- [Worknoon Chat demo walkthrough](https://www.loom.com/share/7f0a051d7c7f46a9bf3c7261adcc0d0f)
+
+## Related Repositories
+
+- [Frontend - Next.js chat UI](https://github.com/Ennygabby01/worknoon-chat-frontend)
+- [WordPress - plugin integration](https://github.com/Ennygabby01/worknoon-chat-wordpress)
+
 ## Technologies
 
 - Node.js
