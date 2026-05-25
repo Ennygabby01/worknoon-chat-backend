@@ -1,0 +1,32 @@
+services:
+  mongodb:
+    image: mongo:8
+    container_name: worknoon-chat-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: worknoon_chat
+    ports:
+      - "${MONGODB_PORT:-27017}:27017"
+    volumes:
+      - worknoon-chat-mongodb-data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' localhost:27017/test | grep 1"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: worknoon-chat-mailhog
+    restart: unless-stopped
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025"
+      - "${MAILHOG_WEB_PORT:-8025}:8025"
+
+volumes:
+  worknoon-chat-mongodb-data:
