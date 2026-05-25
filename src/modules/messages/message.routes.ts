@@ -1,9 +1,11 @@
 import { Router } from "express";
+import type { Server } from "socket.io";
 import { requireAuth } from "../auth/auth.middleware.js";
 import { asyncHandler } from "../../shared/http/async-handler.js";
 import { validateRequest } from "../../shared/validation/validate-request.js";
 import { assertConversationMember } from "../conversations/conversation.service.js";
 import { presentMessage } from "./message.presenter.js";
+import { getConversationRoom, realtimeEvents } from "../../realtime/realtime-events.js";
 import {
   conversationMessageParamsSchema,
   createMessageSchema,
@@ -52,9 +54,14 @@ messageRouter.post(
     assertMessageBodyAllowed(input.body);
 
     const message = await createConversationMessage(conversation, senderId, input);
+    const messagePayload = presentMessage(message);
+    const io = req.app.get("io") as Server | undefined;
+    io?.to(getConversationRoom(params.conversationId)).emit(realtimeEvents.messageNew, {
+      message: messagePayload
+    });
 
     res.status(201).json({
-      message: presentMessage(message)
+      message: messagePayload
     });
   })
 );

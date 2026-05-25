@@ -29,7 +29,7 @@ import {
 import { assertMessageBodyAllowed, createConversationMessage, markMessagesRead } from "../messages/message.service.js";
 import { MessageModel } from "../messages/message.model.js";
 import { presentMessage } from "../messages/message.presenter.js";
-import { getAgentQueueRoom, getConversationRoom, realtimeEvents } from "../../realtime/realtime-events.js";
+import { getAgentQueueRoom, getConversationRoom, getUserRoom, realtimeEvents } from "../../realtime/realtime-events.js";
 
 export const conversationRouter = Router();
 
@@ -38,7 +38,10 @@ conversationRouter.use(requireAuth);
 conversationRouter.get(
   "/",
   asyncHandler(async (req, res) => {
-    const conversations = await listConversationsForUser(req.user!._id.toString());
+    const conversations = await listConversationsForUser(
+      req.user!._id.toString(),
+      req.user!.role
+    );
 
     const lastMessageIds = conversations
       .map((c) => c.lastMessageId)
@@ -70,9 +73,19 @@ conversationRouter.post(
       req.user!._id.toString(),
       req.validatedBody as CreateConversationInput
     );
+    const conversationPayload = presentConversation(conversation);
+    const io = req.app.get("io") as Server | undefined;
+
+    if (io) {
+      for (const participant of conversation.participants) {
+        io.to(getUserRoom(participant.userId.toString())).emit(realtimeEvents.conversationNew, {
+          conversation: conversationPayload
+        });
+      }
+    }
 
     res.status(201).json({
-      conversation: presentConversation(conversation)
+      conversation: conversationPayload
     });
   })
 );
@@ -84,27 +97,64 @@ conversationRouter.post(
     const input = req.validatedBody as CreateSupportConversationInput;
     const senderId = req.user!._id.toString();
 
-    assertMessageBodyAllowed(input.openingMessage);
+    const transcript = input.transcript ?? (
+      input.openingMessage
+        ? [{ role: "user" as const, text: input.openingMessage }]
+        : []
+    );
+
+    if (transcript.length === 0) {
+      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Opening transcript is required" } });
+      return;
+    }
+
+    for (const item of transcript) {
+      assertMessageBodyAllowed(item.text);
+    }
 
     const conversation = await createSupportConversation(senderId, input);
-    const message = await createConversationMessage(conversation, senderId, {
-      body: input.openingMessage,
-      clientMessageId: input.clientMessageId
-    });
+    let lastBody: string | null = null;
+    const messages = [];
+
+    for (const [index, item] of transcript.entries()) {
+      const message = await createConversationMessage(
+        conversation,
+        senderId,
+        {
+          body: item.text,
+          clientMessageId: `${input.clientMessageId}-${index}`
+        },
+        {
+          senderKind: item.role === "bot" ? "assistant" : "user",
+          senderName: item.role === "bot" ? "Worknoon Assistant" : undefined,
+          createdAt: item.timestamp ? new Date(item.timestamp) : undefined
+        }
+      );
+      messages.push(message);
+      lastBody = message.body;
+    }
+
     const updatedConversation = await ConversationModel.findById(conversation._id);
     if (!updatedConversation) {
       res.status(201).json({
-        conversation: presentConversation(conversation, message.body)
+        conversation: presentConversation(conversation, lastBody)
       });
       return;
     }
-    const conversationPayload = presentConversation(updatedConversation, message.body);
+    const conversationPayload = presentConversation(updatedConversation, lastBody);
 
     const io = req.app.get("io") as Server | undefined;
     if (io) {
-      io.to(getConversationRoom(conversation._id.toString())).emit(realtimeEvents.messageNew, {
-        message: presentMessage(message)
-      });
+      for (const message of messages) {
+        io.to(getConversationRoom(conversation._id.toString())).emit(realtimeEvents.messageNew, {
+          message: presentMessage(message)
+        });
+      }
+      for (const participant of updatedConversation.participants) {
+        io.to(getUserRoom(participant.userId.toString())).emit(realtimeEvents.conversationNew, {
+          conversation: conversationPayload
+        });
+      }
       io.to(getAgentQueueRoom()).emit(realtimeEvents.conversationNew, {
         conversation: conversationPayload
       });
@@ -181,7 +231,19 @@ conversationRouter.post(
   asyncHandler(async (req, res) => {
     const params = req.validatedParams as ConversationIdParams;
     const conversation = await claimConversation(params.id, req.user!._id.toString());
-    res.json({ conversation: presentConversation(conversation) });
+    const conversationPayload = presentConversation(conversation);
+    const io = req.app.get("io") as Server | undefined;
+    if (io) {
+      io.to(getConversationRoom(conversation._id.toString())).emit(realtimeEvents.conversationUpdate, {
+        conversation: conversationPayload
+      });
+      for (const participant of conversation.participants) {
+        io.to(getUserRoom(participant.userId.toString())).emit(realtimeEvents.conversationUpdate, {
+          conversation: conversationPayload
+        });
+      }
+    }
+    res.json({ conversation: conversationPayload });
   })
 );
 

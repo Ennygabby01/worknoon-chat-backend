@@ -6,6 +6,8 @@ export function presentMessage(message: MessageDocument) {
     id: message._id.toString(),
     conversationId: message.conversationId.toString(),
     senderId: message.senderId.toString(),
+    senderKind: message.senderKind ?? "user",
+    senderName: message.senderName ?? null,
     body: message.body,
     clientMessageId: message.clientMessageId,
     readBy: message.readBy.map((userId: Types.ObjectId) => userId.toString()),

@@ -71,6 +71,8 @@ make dev
 make seed-demo
 make lint
 make typecheck
+make build
+make start
 ```
 
 ## Environment
@@ -106,7 +108,7 @@ For production, set `APP_ORIGIN` to the frontend origin and configure `SMTP_*` v
 - Admin read endpoints for users and conversations.
 - Conversation creation/list/read-state APIs.
 - Plain-text message creation/list APIs with `clientMessageId` idempotency.
-- Socket.IO authentication, rooms, message delivery, and typing updates.
+- Socket.IO authentication, rooms, REST message broadcasts, conversation updates, presence updates, and typing updates.
 - SMTP email verification and password reset.
 
 ## Demo Accounts
@@ -162,7 +164,8 @@ Profile updates only accept explicit safe fields: `name`, `avatarUrl`, `bio`, an
 - `PATCH /api/v1/conversations/:id/read`
 
 Direct conversation creation uses a stable participant key so duplicate direct conversations return the existing conversation.
-Support conversation creation accepts an opening message and assigns an active agent when one is available. If no active agent exists, the conversation is placed in the agent queue.
+Direct conversation creation emits realtime `conversation:new` events to participants.
+Support conversation creation accepts an opening message or structured bot/customer transcript and creates an escalated queue conversation for agents to claim.
 
 ## Message Endpoints
 
@@ -179,13 +182,13 @@ Orders are scoped to the authenticated buyer and support optional status filteri
 
 ## Agent and Support Flow
 
-- `GET /api/v1/conversations/agent/queue` agent only
-- `GET /api/v1/conversations/agent/cases` agent only
+- `GET /api/v1/conversations/queue` agent only
+- `GET /api/v1/conversations/my-cases` agent only
 - `POST /api/v1/conversations/:id/claim` agent only
 - `POST /api/v1/conversations/:id/escalate`
 - `POST /api/v1/conversations/:id/resolve` agent only
 
-Support handoff uses `POST /api/v1/conversations/support` so the backend can create the first message and assign the least-loaded active agent in one operation. If no active agent is available, the conversation remains in the agent queue.
+Support handoff uses `POST /api/v1/conversations/support` so the backend can persist the assistant/customer transcript and place the case in the agent queue in one operation. Agent claim is atomic; concurrent claims return only one winner, and repeated claims by the winning agent are idempotent.
 
 ## Socket.IO Events
 
@@ -203,6 +206,9 @@ Server events:
 - `conversation:joined`
 - `message:new`
 - `message:sent`
+- `conversation:new`
+- `conversation:update`
+- `presence:update`
 - `typing:update`
 - `error`
 
@@ -211,6 +217,7 @@ Client events:
 - `conversation:join`
 - `conversation:leave`
 - `message:send`
+- `presence:request`
 - `typing:start`
 - `typing:stop`
 
@@ -226,8 +233,8 @@ Client events:
 
 ## Challenges and Tradeoffs
 
-- Support handoff first produced a self-chat because the frontend could create a support conversation without an agent participant. I moved support conversation creation into a dedicated backend endpoint so the opening message, agent assignment, queue fallback, and realtime notification are handled together.
-- Agent availability needed a simple MVP rule. Instead of adding a queue service or distributed locks, the backend selects the least-loaded active agent from current assigned support cases. If no agent is available, the conversation becomes an escalated queue item.
+- Support handoff first produced a self-chat because the frontend could create a support conversation without an agent participant. I moved support conversation creation into a dedicated backend endpoint so the bot/customer transcript, queue placement, and realtime notification are handled together.
+- Agent takeover needed concurrency safety. Instead of adding queues or locks, claim uses an atomic MongoDB update: one agent wins, repeated claims by the same winner are idempotent, and other agents receive a conflict.
 - Demo credentials caused confusion because `seed:demo` and `seed:agents` intentionally use different env values. Demo users, including demo agents, use `SEED_DEMO_PASSWORD`; `SEED_AGENT_PASSWORD` only applies after running `seed:agents`.
 - Contact preloading exposed a contract mismatch: the frontend requested `limit=200`, while backend pagination originally capped requests lower. The pagination cap was raised so role/name metadata can load reliably for chat headers.
 - Duplicate messages and duplicate direct conversations were real race risks, so message sends use `clientMessageId` idempotency and direct conversations use a stable participant key.
@@ -238,4 +245,5 @@ Client events:
 ```bash
 npm run lint
 npm run typecheck
+npm run build
 ```

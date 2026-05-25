@@ -15,6 +15,7 @@ help:
 	@echo "  make typecheck    Run TypeScript typecheck"
 	@echo "  make build        Build TypeScript output"
 	@echo "  make start        Run built server"
+	@echo "  make backend-start Alias for make start"
 
 .PHONY: install
 install:
@@ -55,3 +56,6 @@ build:
 .PHONY: start
 start:
 	npm run start
+
+.PHONY: backend-start
+backend-start: start

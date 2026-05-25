@@ -16,8 +16,13 @@ export const createConversationSchema = z.object({
 
 export const createSupportConversationSchema = z.object({
   topic: z.string().trim().min(1).max(120).optional(),
-  openingMessage: z.string().trim().min(1).max(2000),
+  openingMessage: z.string().trim().min(1).max(2000).optional(),
   clientMessageId: z.string().trim().min(8).max(80),
+  transcript: z.array(z.object({
+    role: z.enum(["bot", "user"]),
+    text: z.string().trim().min(1).max(2000),
+    timestamp: z.string().datetime().optional()
+  })).min(1).max(40).optional(),
   productContext: z
     .object({
       productId: z.string().trim().min(1).max(120).optional(),

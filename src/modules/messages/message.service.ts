@@ -4,6 +4,12 @@ import { assertConversationMember } from "../conversations/conversation.service.
 import { MessageModel } from "./message.model.js";
 import type { CreateMessageInput, MessageListQuery } from "./message.schemas.js";
 
+type CreateConversationMessageOptions = {
+  senderKind?: "user" | "assistant";
+  senderName?: string;
+  createdAt?: Date;
+};
+
 export async function listConversationMessages(
   conversationId: string,
   userId: string,
@@ -22,7 +28,8 @@ export async function listConversationMessages(
 export async function createConversationMessage(
   conversation: ConversationDocument,
   senderId: string,
-  input: CreateMessageInput
+  input: CreateMessageInput,
+  options: CreateConversationMessageOptions = {}
 ) {
   const existingMessage = await MessageModel.findOne({
     conversationId: conversation._id,
@@ -38,9 +45,13 @@ export async function createConversationMessage(
     const message = await MessageModel.create({
       conversationId: conversation._id,
       senderId,
+      senderKind: options.senderKind ?? "user",
+      senderName: options.senderName,
       body: input.body,
       clientMessageId: input.clientMessageId,
-      readBy: [senderId]
+      readBy: options.senderKind === "assistant" ? [] : [senderId],
+      createdAt: options.createdAt,
+      updatedAt: options.createdAt
     });
 
     await ConversationModel.updateOne(

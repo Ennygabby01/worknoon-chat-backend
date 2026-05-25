@@ -4,13 +4,54 @@ import { assertConversationMember } from "../modules/conversations/conversation.
 import { presentMessage } from "../modules/messages/message.presenter.js";
 import { assertMessageBodyAllowed, createConversationMessage } from "../modules/messages/message.service.js";
 import { AppError } from "../shared/errors/app-error.js";
-import { getAgentQueueRoom, getConversationRoom, realtimeEvents } from "./realtime-events.js";
+import { getAgentQueueRoom, getConversationRoom, getUserRoom, realtimeEvents } from "./realtime-events.js";
 import {
   joinConversationPayloadSchema,
   sendMessagePayloadSchema,
   typingPayloadSchema
 } from "./realtime.schemas.js";
 import type { AuthenticatedSocket } from "./socket-auth.js";
+
+const onlineSocketsByUserId = new Map<string, Set<string>>();
+
+function registerPresence(io: Server, socket: AuthenticatedSocket) {
+  const sockets = onlineSocketsByUserId.get(socket.userId) ?? new Set<string>();
+  const wasOffline = sockets.size === 0;
+
+  sockets.add(socket.id);
+  onlineSocketsByUserId.set(socket.userId, sockets);
+
+  for (const userId of onlineSocketsByUserId.keys()) {
+    socket.emit(realtimeEvents.presenceUpdate, { userId, status: "online" });
+  }
+
+  if (wasOffline) {
+    io.emit(realtimeEvents.presenceUpdate, {
+      userId: socket.userId,
+      status: "online"
+    });
+  }
+
+  socket.on(realtimeEvents.presenceRequest, () => {
+    for (const userId of onlineSocketsByUserId.keys()) {
+      socket.emit(realtimeEvents.presenceUpdate, { userId, status: "online" });
+    }
+  });
+
+  socket.on("disconnect", () => {
+    const current = onlineSocketsByUserId.get(socket.userId);
+    if (!current) return;
+
+    current.delete(socket.id);
+    if (current.size > 0) return;
+
+    onlineSocketsByUserId.delete(socket.userId);
+    io.emit(realtimeEvents.presenceUpdate, {
+      userId: socket.userId,
+      status: "offline"
+    });
+  });
+}
 
 function emitSocketError(socket: AuthenticatedSocket, error: unknown) {
   if (error instanceof ZodError) {
@@ -36,6 +77,9 @@ function emitSocketError(socket: AuthenticatedSocket, error: unknown) {
 }
 
 export function registerSocketHandlers(io: Server, socket: AuthenticatedSocket) {
+  registerPresence(io, socket);
+  void socket.join(getUserRoom(socket.userId));
+
   if (socket.userRole === "agent") {
     void socket.join(getAgentQueueRoom());
   }

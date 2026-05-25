@@ -34,6 +34,13 @@ export async function claimConversation(conversationId: string, agentId: string)
     { new: true }
   );
   if (!updated) {
+    const existing = await ConversationModel.findById(conversationId);
+    if (
+      existing?.assignedAgentId?.toString() === agentId &&
+      existing.status === "assigned"
+    ) {
+      return existing;
+    }
     throw new AppError("Conversation is not available to claim", 409, "ALREADY_CLAIMED");
   }
   return updated;
@@ -88,8 +95,17 @@ export async function assertConversationMember(conversationId: string, userId: s
   return conversation;
 }
 
-export async function listConversationsForUser(userId: string) {
-  return ConversationModel.find({ "participants.userId": userId }).sort({ updatedAt: -1 });
+export async function listConversationsForUser(userId: string, role?: string) {
+  const filters = role === "agent"
+    ? {
+        $or: [
+          { "participants.userId": userId },
+          { type: "support", status: "escalated" }
+        ]
+      }
+    : { "participants.userId": userId };
+
+  return ConversationModel.find(filters).sort({ updatedAt: -1 });
 }
 
 export async function createConversation(userId: string, input: CreateConversationInput) {
@@ -141,58 +157,14 @@ export async function createConversation(userId: string, input: CreateConversati
   }
 }
 
-async function findLeastLoadedAgent() {
-  const agents = await UserModel.find({
-    role: "agent",
-    banned: false,
-    emailVerifiedAt: { $exists: true }
-  }).sort({ createdAt: 1 });
-
-  if (agents.length === 0) {
-    return null;
-  }
-
-  const agentIds = agents.map((agent) => agent._id);
-  const activeCaseCounts = await ConversationModel.aggregate<{ _id: Types.ObjectId; count: number }>([
-    {
-      $match: {
-        assignedAgentId: { $in: agentIds },
-        status: { $in: ["open", "assigned"] }
-      }
-    },
-    {
-      $group: {
-        _id: "$assignedAgentId",
-        count: { $sum: 1 }
-      }
-    }
-  ]);
-
-  const countByAgentId = new Map(
-    activeCaseCounts.map((item) => [item._id.toString(), item.count])
-  );
-
-  return agents.reduce((leastLoaded, agent) => {
-    const currentCount = countByAgentId.get(agent._id.toString()) ?? 0;
-    const leastCount = countByAgentId.get(leastLoaded._id.toString()) ?? 0;
-    return currentCount < leastCount ? agent : leastLoaded;
-  }, agents[0]);
-}
-
 export async function createSupportConversation(userId: string, input: CreateSupportConversationInput) {
-  const assignedAgent = await findLeastLoadedAgent();
-  const participantIds = assignedAgent
-    ? [new Types.ObjectId(userId), assignedAgent._id]
-    : [new Types.ObjectId(userId)];
-
   return ConversationModel.create({
     type: "support",
-    status: assignedAgent ? "assigned" : "escalated",
-    assignedAgentId: assignedAgent?._id,
-    participants: participantIds.map((participantId) => ({
-      userId: participantId,
-      readAt: participantId.toString() === userId ? new Date() : undefined
-    })),
+    status: "escalated",
+    participants: [{
+      userId: new Types.ObjectId(userId),
+      readAt: new Date()
+    }],
     topic: input.topic,
     productContext: input.productContext
   });

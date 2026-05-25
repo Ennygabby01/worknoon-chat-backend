@@ -3,6 +3,8 @@ import { Schema, model, type HydratedDocument, type Model, type Types } from "mo
 export type Message = {
   conversationId: Types.ObjectId;
   senderId: Types.ObjectId;
+  senderKind: "user" | "assistant";
+  senderName?: string;
   body: string;
   clientMessageId: string;
   readBy: Types.ObjectId[];
@@ -25,6 +27,17 @@ const messageSchema = new Schema<Message>(
       ref: "User",
       required: true,
       index: true
+    },
+    senderKind: {
+      type: String,
+      enum: ["user", "assistant"],
+      required: true,
+      default: "user"
+    },
+    senderName: {
+      type: String,
+      trim: true,
+      maxlength: 80
     },
     body: {
       type: String,
