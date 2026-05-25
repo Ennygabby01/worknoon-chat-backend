@@ -1,5 +1,11 @@
 # Worknoon Chat Backend
 
+![Node.js](https://img.shields.io/badge/Node.js-API-339933?logo=node.js&logoColor=white)
+![Express](https://img.shields.io/badge/Express-REST-000000?logo=express&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-Persistence-47A248?logo=mongodb&logoColor=white)
+![Socket.IO](https://img.shields.io/badge/Socket.IO-Realtime-010101?logo=socket.io&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?logo=typescript&logoColor=white)
+
 Backend API and Socket.IO server for the Worknoon real-time chat assessment. It owns authentication, roles, conversations, messages, read state, admin read endpoints, and realtime delivery.
 
 ## Technologies
@@ -220,11 +226,12 @@ Client events:
 
 ## Challenges and Tradeoffs
 
-- Support handoff originally risked creating a self-chat when the frontend opened a support conversation without an agent. The final flow moved support assignment into the backend so the opening message and agent assignment happen together.
-- Message creation uses `clientMessageId` idempotency to avoid duplicate messages after retries or double-clicks.
-- Direct conversations use a stable participant key to avoid duplicate buyer-to-designer or buyer-to-merchant threads.
-- Contact preloading exposed a pagination mismatch between frontend needs and backend limits. The shared pagination cap was raised so role/name metadata can be loaded reliably for chat headers.
-- Refresh tokens are stored in `httpOnly` cookies while access tokens stay in frontend session state. This keeps API auth simple for the assessment while avoiding query-string tokens.
+- Support handoff first produced a self-chat because the frontend could create a support conversation without an agent participant. I moved support conversation creation into a dedicated backend endpoint so the opening message, agent assignment, queue fallback, and realtime notification are handled together.
+- Agent availability needed a simple MVP rule. Instead of adding a queue service or distributed locks, the backend selects the least-loaded active agent from current assigned support cases. If no agent is available, the conversation becomes an escalated queue item.
+- Demo credentials caused confusion because `seed:demo` and `seed:agents` intentionally use different env values. Demo users, including demo agents, use `SEED_DEMO_PASSWORD`; `SEED_AGENT_PASSWORD` only applies after running `seed:agents`.
+- Contact preloading exposed a contract mismatch: the frontend requested `limit=200`, while backend pagination originally capped requests lower. The pagination cap was raised so role/name metadata can load reliably for chat headers.
+- Duplicate messages and duplicate direct conversations were real race risks, so message sends use `clientMessageId` idempotency and direct conversations use a stable participant key.
+- I kept refresh tokens in `httpOnly` cookies and access tokens in frontend memory/session state. That is simpler than a full OAuth-style setup while still avoiding query-string tokens and localStorage refresh tokens.
 
 ## Validation
 
